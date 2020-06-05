@@ -82,6 +82,8 @@ module Data.Primitive.Contiguous
   , imap'
   , imapMutable
   , imapMutable'
+  , traverseMutable
+  , itraverseMutable
   , modify
   , modify'
   , mapMaybe
@@ -1210,6 +1212,38 @@ imapMutable' f !marr = do
         go (ix + 1)
   go 0
 {-# inline imapMutable' #-}
+
+-- | Map the elements of a mutable array into actions, evaluate the actions from
+--   left to right, and modify the array in-place with the results of these
+--   actions.
+traverseMutable :: (PrimMonad m, Contiguous arr, Element arr a)
+   => (a -> m a)
+   -> Mutable arr (PrimState m) a
+   -> m ()
+traverseMutable f !marr = do
+  !sz <- sizeMutable marr
+  let go !ix = when (ix < sz) $ do
+        a <- read marr ix
+        write marr ix =<< f a
+        go (ix + 1)
+  go 0
+{-# inline traverseMutable #-}
+
+-- | Map the elements of a mutable array along with their indices into actions,
+--   evaluate the actions from left to right, and modify the array in-place with
+--   the results of these actions.
+itraverseMutable :: (PrimMonad m, Contiguous arr, Element arr a)
+   => (Int -> a -> m a)
+   -> Mutable arr (PrimState m) a
+   -> m ()
+itraverseMutable f !marr = do
+  !sz <- sizeMutable marr
+  let go !ix = when (ix < sz) $ do
+        a <- read marr ix
+        write marr ix =<< f ix a
+        go (ix + 1)
+  go 0
+{-# inline itraverseMutable #-}
 
 -- | Map each element of the array to an action, evaluate these
 --   actions from left to right, and collect the results in a
